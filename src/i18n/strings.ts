@@ -50,6 +50,26 @@ export interface Strings {
   setupLink: string;
   error: string;
   lowConfidenceNote: string;
+  // Reminders
+  reminderLabel: string;
+  reminderNone: string;
+  reminderAtStart: string;
+  reminder10m: string;
+  reminder30m: string;
+  reminder1h: string;
+  reminder2h: string;
+  reminder1d: string;
+  templateNoReminder: string;
+  // Google sign-in
+  signIn: string;
+  signedIn: string;
+  signOut: string;
+  clientIdLabel: string;
+  clientIdPlaceholder: string;
+  save: string;
+  change: string;
+  setupHow: string;
+  googleSetupHelp: string;
 }
 
 const he: Strings = {
@@ -100,10 +120,29 @@ const he: Strings = {
   addToGoogle: "הוסף ליומן",
   downloadIcs: "הורדת קובץ .ics",
   googleNotConfigured:
-    "הוספה אוטומטית של כל המשמרות דורשת הגדרת Google Client ID. בינתיים אפשר להוסיף כל משמרת בקישור, או להוריד קובץ .ics.",
+    "כדי להתחבר ל-Google ולהוסיף את כל המשמרות בלחיצה אחת, הזינו Google Client ID (חד-פעמי, נשמר במכשיר).",
   setupLink: "איך מגדירים?",
   error: "אירעה שגיאה",
   lowConfidenceNote: "שורות בצהוב זוהו בוודאות נמוכה — מומלץ לבדוק.",
+  reminderLabel: "תזכורת",
+  reminderNone: "ללא",
+  reminderAtStart: "בזמן המשמרת",
+  reminder10m: "10 דקות לפני",
+  reminder30m: "30 דקות לפני",
+  reminder1h: "שעה לפני",
+  reminder2h: "שעתיים לפני",
+  reminder1d: "יום לפני",
+  templateNoReminder: "קישורי המשמרת הבודדת אינם כוללים תזכורת (מגבלה של Google).",
+  signIn: "התחבר עם Google",
+  signedIn: "מחובר ל-Google ✓",
+  signOut: "התנתק",
+  clientIdLabel: "Google Client ID",
+  clientIdPlaceholder: "...apps.googleusercontent.com",
+  save: "שמור",
+  change: "שנה",
+  setupHow: "איך משיגים Client ID?",
+  googleSetupHelp:
+    "ב-Google Cloud Console: צרו פרויקט, הפעילו Calendar API, צרו OAuth Client ID מסוג Web, והוסיפו את כתובת האתר ל-Authorized JavaScript origins.",
 };
 
 const en: Strings = {
@@ -154,10 +193,29 @@ const en: Strings = {
   addToGoogle: "Add to calendar",
   downloadIcs: "Download .ics file",
   googleNotConfigured:
-    "One-click add for all shifts needs a Google Client ID. Meanwhile, add each shift via its link, or download an .ics file.",
+    "To sign in with Google and add all shifts in one click, enter a Google Client ID (one-time, stored on your device).",
   setupLink: "How to set up?",
   error: "Something went wrong",
   lowConfidenceNote: "Rows highlighted in yellow were detected with low confidence — please check.",
+  reminderLabel: "Reminder",
+  reminderNone: "None",
+  reminderAtStart: "At start",
+  reminder10m: "10 min before",
+  reminder30m: "30 min before",
+  reminder1h: "1 hour before",
+  reminder2h: "2 hours before",
+  reminder1d: "1 day before",
+  templateNoReminder: "Per-shift links don't include a reminder (Google limitation).",
+  signIn: "Sign in with Google",
+  signedIn: "Connected to Google ✓",
+  signOut: "Sign out",
+  clientIdLabel: "Google Client ID",
+  clientIdPlaceholder: "...apps.googleusercontent.com",
+  save: "Save",
+  change: "Change",
+  setupHow: "How to get a Client ID?",
+  googleSetupHelp:
+    "In Google Cloud Console: create a project, enable the Calendar API, create an OAuth Client ID (Web), and add this site's URL to Authorized JavaScript origins.",
 };
 
 export const STRINGS: Record<Lang, Strings> = { he, en };

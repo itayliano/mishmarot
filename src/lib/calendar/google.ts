@@ -11,8 +11,31 @@ import { resolveEvent } from "./event";
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
-export const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || "";
-export const isGoogleConfigured = (): boolean => googleClientId.length > 0;
+const LS_CLIENT_ID = "mishmarot_google_client_id";
+
+/** Client ID resolved from the in-app setting (localStorage) or build-time env. */
+export function getGoogleClientId(): string {
+  try {
+    const v = localStorage.getItem(LS_CLIENT_ID);
+    if (v && v.trim()) return v.trim();
+  } catch {
+    /* localStorage unavailable */
+  }
+  return import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || "";
+}
+
+/** Persist a Client ID entered in the app (empty string clears it). */
+export function setGoogleClientId(id: string): void {
+  try {
+    const v = id.trim();
+    if (v) localStorage.setItem(LS_CLIENT_ID, v);
+    else localStorage.removeItem(LS_CLIENT_ID);
+  } catch {
+    /* ignore */
+  }
+}
+
+export const isGoogleConfigured = (): boolean => getGoogleClientId().length > 0;
 
 // Minimal typings for the GIS global we use.
 interface TokenResponse {
@@ -57,12 +80,13 @@ function loadGis(): Promise<void> {
 
 /** Open the Google consent popup and resolve with an access token. */
 export async function connectGoogle(): Promise<string> {
-  if (!isGoogleConfigured()) throw new Error("Google Client ID not configured");
+  const clientId = getGoogleClientId();
+  if (!clientId) throw new Error("Google Client ID not configured");
   await loadGis();
   const oauth2 = window.google!.accounts.oauth2;
   return new Promise<string>((resolve, reject) => {
     const client = oauth2.initTokenClient({
-      client_id: googleClientId,
+      client_id: clientId,
       scope: SCOPE,
       callback: (resp) => {
         if (resp.access_token) resolve(resp.access_token);
@@ -99,9 +123,14 @@ export interface InsertProgress {
 export async function insertEvents(
   shifts: Shift[],
   token: string,
+  reminderMinutes: number | null = 60,
   onProgress?: (p: InsertProgress) => void,
 ): Promise<{ done: number; failed: number }> {
   const timeZone = tz();
+  const reminders =
+    reminderMinutes != null
+      ? { useDefault: false, overrides: [{ method: "popup", minutes: reminderMinutes }] }
+      : { useDefault: false, overrides: [] as { method: string; minutes: number }[] };
   let done = 0;
   let failed = 0;
 
@@ -113,12 +142,14 @@ export async function insertEvents(
           description: ev.description || undefined,
           start: { date: dateOnly(ev.start) },
           end: { date: dateOnly(ev.end) },
+          reminders,
         }
       : {
           summary: ev.title,
           description: ev.description || undefined,
           start: { dateTime: rfc3339(ev.start), timeZone },
           end: { dateTime: rfc3339(ev.end), timeZone },
+          reminders,
         };
 
     try {

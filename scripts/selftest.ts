@@ -102,6 +102,14 @@ console.log("ICS + Google URL generation:");
   check("ICS has VEVENT", ics.includes("BEGIN:VEVENT") && ics.includes("END:VCALENDAR"), ics);
   check("ICS DTSTART 20250624T230000", ics.includes("DTSTART:20250624T230000"), ics);
   check("ICS DTEND next day 20250625T070000", ics.includes("DTEND:20250625T070000"), ics);
+  check(
+    "ICS default reminder 1h (VALARM TRIGGER -PT1H)",
+    ics.includes("BEGIN:VALARM") && ics.includes("TRIGGER:-PT1H"),
+    ics,
+  );
+  check("ICS no reminder when null", !buildICS(shifts, null).includes("VALARM"));
+  check("ICS 30-min reminder", buildICS(shifts, 30).includes("TRIGGER:-PT30M"));
+  check("ICS 1-day reminder", buildICS(shifts, 1440).includes("TRIGGER:-P1D"));
   const url = googleTemplateUrl(shifts[0]);
   check("Google URL has TEMPLATE + dates", url.includes("action=TEMPLATE") && url.includes("dates="), url);
   check("Google URL spans to next day", url.includes("20250624T230000") && url.includes("20250625T070000"), url);

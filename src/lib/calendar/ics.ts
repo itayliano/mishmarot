@@ -24,8 +24,20 @@ function uid(i: number): string {
   return `mishmarot-${Date.now()}-${i}@local`;
 }
 
-/** Build an importable .ics file (floating local time) from selected shifts. */
-export function buildICS(shifts: Shift[]): string {
+/** RFC 5545 alarm trigger, e.g. 60 -> "-PT1H", 1440 -> "-P1D", 0 -> "PT0S". */
+function triggerFor(minutes: number): string {
+  if (minutes <= 0) return "TRIGGER:PT0S";
+  if (minutes % 1440 === 0) return `TRIGGER:-P${minutes / 1440}D`;
+  if (minutes % 60 === 0) return `TRIGGER:-PT${minutes / 60}H`;
+  return `TRIGGER:-PT${minutes}M`;
+}
+
+/**
+ * Build an importable .ics file (floating local time) from selected shifts.
+ * `reminderMinutes` adds a VALARM that many minutes before each event
+ * (null = no reminder). Defaults to 60 (one hour before).
+ */
+export function buildICS(shifts: Shift[], reminderMinutes: number | null = 60): string {
   const stamp = basicDateTime({
     year: new Date().getUTCFullYear(),
     month: new Date().getUTCMonth() + 1,
@@ -55,6 +67,13 @@ export function buildICS(shifts: Shift[]): string {
     }
     lines.push(fold(`SUMMARY:${esc(ev.title)}`));
     if (ev.description) lines.push(fold(`DESCRIPTION:${esc(ev.description)}`));
+    if (reminderMinutes != null) {
+      lines.push("BEGIN:VALARM");
+      lines.push("ACTION:DISPLAY");
+      lines.push(fold(`DESCRIPTION:${esc(ev.title)}`));
+      lines.push(triggerFor(reminderMinutes));
+      lines.push("END:VALARM");
+    }
     lines.push("END:VEVENT");
   });
 
@@ -63,8 +82,14 @@ export function buildICS(shifts: Shift[]): string {
 }
 
 /** Trigger a browser download of the .ics file. */
-export function downloadICS(shifts: Shift[], filename = "mishmarot.ics"): void {
-  const blob = new Blob([buildICS(shifts)], { type: "text/calendar;charset=utf-8" });
+export function downloadICS(
+  shifts: Shift[],
+  reminderMinutes: number | null = 60,
+  filename = "mishmarot.ics",
+): void {
+  const blob = new Blob([buildICS(shifts, reminderMinutes)], {
+    type: "text/calendar;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
