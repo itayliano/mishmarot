@@ -2,30 +2,35 @@ import { useState } from "react";
 import type { Shift } from "../lib/parse/types";
 import type { Strings } from "../i18n/strings";
 import { downloadICS } from "../lib/calendar/ics";
-import {
-  connectGoogle,
-  insertEvents,
-  isGoogleConfigured,
-  getGoogleClientId,
-  setGoogleClientId,
-} from "../lib/calendar/google";
+import { insertEvents, type CalendarItem } from "../lib/calendar/google";
 
 interface Props {
   selected: Shift[];
   strings: Strings;
+  token: string | null;
+  busy: boolean;
+  calendars: CalendarItem[];
+  calendarId: string;
+  onCalendarChange: (id: string) => void;
+  onConnect: () => Promise<string | null>;
 }
 
-type Phase = "idle" | "connecting" | "adding" | "done" | "error";
+type Phase = "idle" | "adding" | "done" | "error";
 
-export function ExportBar({ selected, strings }: Props) {
+export function ExportBar({
+  selected,
+  strings,
+  token,
+  busy,
+  calendars,
+  calendarId,
+  onCalendarChange,
+  onConnect,
+}: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
   const [message, setMessage] = useState<string>("");
   const [reminder, setReminder] = useState<number | null>(60);
-  const [token, setToken] = useState<string | null>(null);
-  const [configured, setConfigured] = useState(isGoogleConfigured());
-  const [editingId, setEditingId] = useState(!isGoogleConfigured());
-  const [draftId, setDraftId] = useState(getGoogleClientId());
 
   const disabled = selected.length === 0;
 
@@ -39,39 +44,15 @@ export function ExportBar({ selected, strings }: Props) {
     { value: 1440, label: strings.reminder1d },
   ];
 
-  const saveClientId = () => {
-    setGoogleClientId(draftId);
-    setConfigured(isGoogleConfigured());
-    setEditingId(false);
-    setMessage("");
-    setPhase("idle");
-  };
-
-  const signIn = async () => {
-    try {
-      setPhase("connecting");
-      setMessage("");
-      const t = await connectGoogle();
-      setToken(t);
-      setPhase("idle");
-    } catch (e) {
-      setPhase("error");
-      setMessage(e instanceof Error ? e.message : String(e));
-    }
-  };
-
   const addAll = async () => {
     try {
       let t = token;
-      if (!t) {
-        setPhase("connecting");
-        setMessage("");
-        t = await connectGoogle();
-        setToken(t);
-      }
+      if (!t) t = await onConnect();
+      if (!t) return;
       setPhase("adding");
+      setMessage("");
       setProgress({ done: 0, total: selected.length, failed: 0 });
-      const { done, failed } = await insertEvents(selected, t, reminder, setProgress);
+      const { done, failed } = await insertEvents(selected, t, reminder, calendarId, setProgress);
       setPhase("done");
       setMessage(failed ? strings.addedPartial(done, failed) : strings.addedOk(done));
     } catch (e) {
@@ -80,7 +61,7 @@ export function ExportBar({ selected, strings }: Props) {
     }
   };
 
-  const busy = phase === "connecting" || phase === "adding";
+  const adding = phase === "adding";
 
   return (
     <section className="export">
@@ -109,50 +90,26 @@ export function ExportBar({ selected, strings }: Props) {
         <div className="export-card">
           <div className="export-card-title">Google Calendar</div>
 
-          {!configured || editingId ? (
-            <div className="clientid">
-              <label>{strings.clientIdLabel}</label>
-              <input
-                type="text"
-                value={draftId}
-                placeholder={strings.clientIdPlaceholder}
-                onChange={(e) => setDraftId(e.target.value)}
-                spellCheck={false}
-              />
-              <div className="row">
-                <button className="primary" onClick={saveClientId} disabled={!draftId.trim()}>
-                  {strings.save}
-                </button>
-                <a
-                  className="link"
-                  href="https://console.cloud.google.com/apis/credentials"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {strings.setupHow}
-                </a>
-              </div>
-              <p className="muted">{strings.googleSetupHelp}</p>
-            </div>
-          ) : (
-            <div className="google-actions">
-              {token ? (
-                <span className="badge ok">{strings.signedIn}</span>
-              ) : (
-                <button className="google" onClick={signIn} disabled={busy}>
-                  {phase === "connecting" ? strings.connecting : strings.signIn}
-                </button>
-              )}
-              <button className="primary" onClick={addAll} disabled={disabled || busy}>
-                {phase === "adding"
-                  ? strings.adding(progress.done, progress.total)
-                  : strings.addAllGoogle}
-              </button>
-              <button className="link" onClick={() => setEditingId(true)}>
-                {strings.change}
-              </button>
-            </div>
+          {token && calendars.length > 0 && (
+            <label className="reminder calendar-pick">
+              🗓️ {strings.targetCalendar}
+              <select value={calendarId} onChange={(e) => onCalendarChange(e.target.value)}>
+                {calendars.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.summary}
+                    {c.primary ? " ★" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
+
+          <div className="row">
+            <button className="primary" onClick={addAll} disabled={disabled || busy || adding}>
+              {adding ? strings.adding(progress.done, progress.total) : strings.addAllGoogle}
+            </button>
+          </div>
+          {!token && <p className="muted">{strings.signInToAdd}</p>}
         </div>
 
         {/* File card */}

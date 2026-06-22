@@ -2,14 +2,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FileDrop } from "./components/FileDrop";
 import { ShiftTable } from "./components/ShiftTable";
 import { ExportBar } from "./components/ExportBar";
+import { GoogleMenu } from "./components/GoogleMenu";
 import { extractLines, type ExtractProgress } from "./lib/pdf/extract";
 import { parseShifts } from "./lib/parse/parseShifts";
+import { connectGoogle, listCalendars, type CalendarItem } from "./lib/calendar/google";
 import type { DateOrder, Lang, Line, Shift } from "./lib/parse/types";
 import { STRINGS } from "./i18n/strings";
 
 type Status = "idle" | "parsing" | "ready" | "error";
+type Theme = "dark" | "light";
 
 let blankCounter = 0;
+
+const readTheme = (): Theme => {
+  try {
+    return localStorage.getItem("mishmarot_theme") === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+};
 
 export function App() {
   const [lang, setLang] = useState<Lang>("he");
@@ -22,6 +33,12 @@ export function App() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [progressMsg, setProgressMsg] = useState<string>("");
   const [usedOcr, setUsedOcr] = useState(false);
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [gToken, setGToken] = useState<string | null>(null);
+  const [calendars, setCalendars] = useState<CalendarItem[]>([]);
+  const [calendarId, setCalendarId] = useState("primary");
+  const [gBusy, setGBusy] = useState(false);
+  const [gError, setGError] = useState("");
   const linesRef = useRef<Line[]>([]);
   const usedOcrRef = useRef(false);
 
@@ -31,6 +48,44 @@ export function App() {
     document.documentElement.lang = lang;
     document.documentElement.dir = s.dir;
   }, [lang, s.dir]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("mishmarot_theme", theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+
+  const connectGoogleAccount = async (): Promise<string | null> => {
+    try {
+      setGBusy(true);
+      setGError("");
+      const t = await connectGoogle();
+      setGToken(t);
+      try {
+        const cals = await listCalendars(t);
+        setCalendars(cals);
+        setCalendarId(cals.find((c) => c.primary)?.id ?? "primary");
+      } catch {
+        /* listing is best-effort; primary still works for writing */
+      }
+      return t;
+    } catch (e) {
+      setGError(e instanceof Error ? e.message : String(e));
+      return null;
+    } finally {
+      setGBusy(false);
+    }
+  };
+
+  const signOutGoogle = () => {
+    setGToken(null);
+    setCalendars([]);
+    setCalendarId("primary");
+    setGError("");
+  };
 
   const runParse = (lines: Line[], ord: DateOrder, lng: Lang, ocr: boolean) => {
     let result = parseShifts(lines, { order: ord, lang: lng });
@@ -127,19 +182,42 @@ export function App() {
 
   return (
     <div className="app">
+      <div className="topbar">
+        <div className="controls">
+          <button
+            className="icon-btn"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? s.toLight : s.toDark}
+            aria-label={theme === "dark" ? s.toLight : s.toDark}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <select
+            className="lang-select"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+            aria-label={s.language}
+          >
+            <option value="he">עברית</option>
+            <option value="en">English</option>
+          </select>
+          <GoogleMenu
+            strings={s}
+            connected={!!gToken}
+            busy={gBusy}
+            error={gError}
+            onConnect={connectGoogleAccount}
+            onSignOut={signOutGoogle}
+          />
+        </div>
+      </div>
+
       <header className="hero">
         <h1>{s.appTitle}</h1>
         <p>{s.tagline}</p>
       </header>
 
       <div className="toolbar">
-        <label>
-          {s.language}
-          <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-            <option value="he">עברית</option>
-            <option value="en">English</option>
-          </select>
-        </label>
         <label>
           {s.dateOrder}
           <select value={order} onChange={(e) => setOrder(e.target.value as DateOrder)}>
@@ -200,7 +278,16 @@ export function App() {
 
           <ShiftTable rows={visible} strings={s} onUpdate={updateShift} onDelete={deleteShift} />
 
-          <ExportBar selected={selected} strings={s} />
+          <ExportBar
+            selected={selected}
+            strings={s}
+            token={gToken}
+            busy={gBusy}
+            calendars={calendars}
+            calendarId={calendarId}
+            onCalendarChange={setCalendarId}
+            onConnect={connectGoogleAccount}
+          />
         </>
       )}
 

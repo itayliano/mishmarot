@@ -70,6 +70,13 @@ export interface Strings {
   change: string;
   setupHow: string;
   googleSetupHelp: string;
+  // Account menu + calendars + theme
+  googleMenuTitle: string;
+  targetCalendar: string;
+  loadingCalendars: string;
+  signInToAdd: string;
+  toLight: string;
+  toDark: string;
 }
 
 const he: Strings = {
@@ -143,6 +150,12 @@ const he: Strings = {
   setupHow: "איך משיגים Client ID?",
   googleSetupHelp:
     "ב-Google Cloud Console: צרו פרויקט, הפעילו Calendar API, צרו OAuth Client ID מסוג Web, והוסיפו את כתובת האתר ל-Authorized JavaScript origins.",
+  googleMenuTitle: "חשבון Google",
+  targetCalendar: "יומן יעד",
+  loadingCalendars: "טוען יומנים…",
+  signInToAdd: "התחברו עם Google (מהתפריט למעלה) כדי להוסיף את כל המשמרות אוטומטית.",
+  toLight: "מצב בהיר",
+  toDark: "מצב כהה",
 };
 
 const en: Strings = {
@@ -216,6 +229,12 @@ const en: Strings = {
   setupHow: "How to get a Client ID?",
   googleSetupHelp:
     "In Google Cloud Console: create a project, enable the Calendar API, create an OAuth Client ID (Web), and add this site's URL to Authorized JavaScript origins.",
+  googleMenuTitle: "Google account",
+  targetCalendar: "Target calendar",
+  loadingCalendars: "Loading calendars…",
+  signInToAdd: "Sign in with Google (top menu) to add all shifts automatically.",
+  toLight: "Light mode",
+  toDark: "Dark mode",
 };
 
 export const STRINGS: Record<Lang, Strings> = { he, en };

@@ -8,7 +8,9 @@ import { resolveEvent } from "./event";
  * per-shift template links and .ics download.
  */
 
-const SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const SCOPE =
+  "https://www.googleapis.com/auth/calendar.events " +
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
 const LS_CLIENT_ID = "mishmarot_google_client_id";
@@ -105,6 +107,33 @@ function tz(): string {
   }
 }
 
+export interface CalendarItem {
+  id: string;
+  summary: string;
+  primary: boolean;
+  accessRole: string;
+}
+
+/** Fetch the user's writable calendars (primary first). */
+export async function listCalendars(token: string): Promise<CalendarItem[]> {
+  const res = await fetch(
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer",
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`Failed to list calendars (${res.status})`);
+  const data = await res.json();
+  const items: CalendarItem[] = (data.items ?? []).map((c: Record<string, unknown>) => ({
+    id: String(c.id),
+    summary: String(c.summaryOverride || c.summary || c.id),
+    primary: !!c.primary,
+    accessRole: String(c.accessRole ?? ""),
+  }));
+  items.sort(
+    (a, b) => Number(b.primary) - Number(a.primary) || a.summary.localeCompare(b.summary),
+  );
+  return items;
+}
+
 const pad2 = (n: number) => String(n).padStart(2, "0");
 function rfc3339(p: { year: number; month: number; day: number; hour: number; minute: number }) {
   return `${p.year}-${pad2(p.month)}-${pad2(p.day)}T${pad2(p.hour)}:${pad2(p.minute)}:00`;
@@ -124,6 +153,7 @@ export async function insertEvents(
   shifts: Shift[],
   token: string,
   reminderMinutes: number | null = 60,
+  calendarId = "primary",
   onProgress?: (p: InsertProgress) => void,
 ): Promise<{ done: number; failed: number }> {
   const timeZone = tz();
@@ -154,7 +184,7 @@ export async function insertEvents(
 
     try {
       const res = await fetch(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
         {
           method: "POST",
           headers: {
