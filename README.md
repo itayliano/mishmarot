@@ -11,6 +11,19 @@ optional sign-in, per-shift links without sign-in, or an `.ics` download.
 > הקבצים לא עולים לשום שרת — כל העיבוד קורה במחשב/בנייד שלך.
 > Files never leave your device — all parsing happens locally in the browser.
 
+**🌐 אונליין / Live:** https://itayliano.github.io/mishmarot/
+
+## פריסה / Deploy
+
+האתר מתארח ב-GitHub Pages מענף `gh-pages`. לעדכון לאחר שינויים:
+
+```bash
+npm run deploy   # בונה ודוחף את dist לענף gh-pages
+```
+
+(דורש הרשאת git ל-repo. כדי שכפתור "הוסף הכול ל-Google Calendar" יעבוד באתר החי,
+יש להוסיף את `https://itayliano.github.io` ל-Authorized JavaScript origins של ה-OAuth Client.)
+
 ## הרצה / Run
 
 ```bash
