@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Shift } from "../lib/parse/types";
 import type { Strings } from "../i18n/strings";
 import { downloadICS } from "../lib/calendar/ics";
-import { insertEvents, type CalendarItem } from "../lib/calendar/google";
+import { insertEvents, deleteEvents, type CalendarItem } from "../lib/calendar/google";
 
 interface Props {
   selected: Shift[];
@@ -31,6 +31,9 @@ export function ExportBar({
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
   const [message, setMessage] = useState<string>("");
   const [reminder, setReminder] = useState<number | null>(60);
+  const [createdIds, setCreatedIds] = useState<string[]>([]);
+  const [undoCtx, setUndoCtx] = useState<{ token: string; calendarId: string } | null>(null);
+  const [undoing, setUndoing] = useState(false);
 
   const disabled = selected.length === 0;
 
@@ -51,8 +54,9 @@ export function ExportBar({
       if (!t) return;
       setPhase("adding");
       setMessage("");
+      setCreatedIds([]);
       setProgress({ done: 0, total: selected.length, failed: 0 });
-      const { done, failed, firstError } = await insertEvents(
+      const { done, failed, firstError, created } = await insertEvents(
         selected,
         t,
         reminder,
@@ -64,6 +68,8 @@ export function ExportBar({
         setMessage(firstError || strings.addedPartial(done, failed));
       } else {
         setPhase("done");
+        setCreatedIds(created);
+        setUndoCtx({ token: t, calendarId });
         setMessage(
           failed ? `${strings.addedPartial(done, failed)} (${firstError})` : strings.addedOk(done),
         );
@@ -71,6 +77,27 @@ export function ExportBar({
     } catch (e) {
       setPhase("error");
       setMessage(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const undo = async () => {
+    if (!undoCtx || !createdIds.length) return;
+    setUndoing(true);
+    try {
+      const { deleted, failed, firstError } = await deleteEvents(
+        createdIds,
+        undoCtx.token,
+        undoCtx.calendarId,
+        setProgress,
+      );
+      setCreatedIds([]);
+      setMessage(
+        failed ? `${strings.undonePartial(deleted, failed)} (${firstError})` : strings.undone(deleted),
+      );
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -140,7 +167,18 @@ export function ExportBar({
         </div>
       </div>
 
-      {phase === "done" && <div className="notice ok">{message}</div>}
+      {phase === "done" && (
+        <div className="notice ok">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span>{message}</span>
+            {createdIds.length > 0 && (
+              <button className="ghost" onClick={undo} disabled={undoing}>
+                {undoing ? strings.undoing : `↩︎ ${strings.undo}`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {phase === "error" && (
         <div className="notice error">
           {strings.error}: {message}

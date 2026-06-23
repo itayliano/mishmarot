@@ -160,7 +160,7 @@ export async function insertEvents(
   reminderMinutes: number | null = 60,
   calendarId = "primary",
   onProgress?: (p: InsertProgress) => void,
-): Promise<{ done: number; failed: number; firstError: string }> {
+): Promise<{ done: number; failed: number; firstError: string; created: string[] }> {
   const timeZone = tz();
   const reminders =
     reminderMinutes != null
@@ -169,6 +169,7 @@ export async function insertEvents(
   let done = 0;
   let failed = 0;
   let firstError = "";
+  const created: string[] = [];
 
   for (const shift of shifts) {
     const ev = resolveEvent(shift);
@@ -200,8 +201,15 @@ export async function insertEvents(
           body: JSON.stringify(body),
         },
       );
-      if (res.ok) done++;
-      else {
+      if (res.ok) {
+        done++;
+        try {
+          const j = await res.json();
+          if (j?.id) created.push(String(j.id));
+        } catch {
+          /* ignore */
+        }
+      } else {
         failed++;
         if (!firstError) {
           let detail = "";
@@ -221,5 +229,37 @@ export async function insertEvents(
     onProgress?.({ done, total: shifts.length, failed });
   }
 
-  return { done, failed, firstError };
+  return { done, failed, firstError, created };
+}
+
+/** Delete events (by id) created during this session — the "undo" action. */
+export async function deleteEvents(
+  eventIds: string[],
+  token: string,
+  calendarId = "primary",
+  onProgress?: (p: InsertProgress) => void,
+): Promise<{ deleted: number; failed: number; firstError: string }> {
+  let deleted = 0;
+  let failed = 0;
+  let firstError = "";
+  for (const id of eventIds) {
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+          calendarId,
+        )}/events/${encodeURIComponent(id)}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.ok || res.status === 410) deleted++; // 410 = already gone
+      else {
+        failed++;
+        if (!firstError) firstError = `HTTP ${res.status}`;
+      }
+    } catch (e) {
+      failed++;
+      if (!firstError) firstError = e instanceof Error ? e.message : String(e);
+    }
+    onProgress?.({ done: deleted, total: eventIds.length, failed });
+  }
+  return { deleted, failed, firstError };
 }

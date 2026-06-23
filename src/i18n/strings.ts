@@ -47,6 +47,10 @@ export interface Strings {
   adding: (done: number, total: number) => string;
   addedOk: (n: number) => string;
   addedPartial: (ok: number, failed: number) => string;
+  undo: string;
+  undoing: string;
+  undone: (n: number) => string;
+  undonePartial: (ok: number, failed: number) => string;
   perShiftHint: string;
   addToGoogle: string;
   downloadIcs: string;
@@ -131,6 +135,10 @@ const he: Strings = {
   adding: (done, total) => `מוסיף ${done}/${total}…`,
   addedOk: (n) => `נוספו ${n} משמרות ליומן בהצלחה ✓`,
   addedPartial: (ok, failed) => `נוספו ${ok}, נכשלו ${failed}.`,
+  undo: "בטל הוספה",
+  undoing: "מבטל…",
+  undone: (n) => `ההוספה בוטלה — ${n} אירועים נמחקו מהיומן ✓`,
+  undonePartial: (ok, failed) => `נמחקו ${ok}, נכשלו ${failed}.`,
   perShiftHint: "אפשר גם להוסיף כל משמרת בנפרד (ללא התחברות):",
   addToGoogle: "הוסף ליומן",
   downloadIcs: "הורדת קובץ .ics",
@@ -214,6 +222,10 @@ const en: Strings = {
   adding: (done, total) => `Adding ${done}/${total}…`,
   addedOk: (n) => `Added ${n} shifts to your calendar ✓`,
   addedPartial: (ok, failed) => `Added ${ok}, failed ${failed}.`,
+  undo: "Undo add",
+  undoing: "Undoing…",
+  undone: (n) => `Undone — ${n} events removed from your calendar ✓`,
+  undonePartial: (ok, failed) => `Removed ${ok}, failed ${failed}.`,
   perShiftHint: "Or add each shift individually (no sign-in):",
   addToGoogle: "Add to calendar",
   downloadIcs: "Download .ics file",
