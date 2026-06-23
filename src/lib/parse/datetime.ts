@@ -65,12 +65,14 @@ export function findDates(text: string, order: DateOrder): DateMatch[] {
     }
   }
 
-  // Numeric: d/m, d.m, d-m, with optional year.
-  const num = /\b(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](\d{2,4}))?\b/g;
+  // Numeric with / . \ separators (d/m, d.m, d\m), optional year.
+  // Hyphen is intentionally excluded here so bare ranges like "7-15" stay times;
+  // hyphen dates are matched separately below but only when a year is present.
+  const num = /\b(\d{1,2})[/.\\](\d{1,2})(?:[/.\\](\d{2,4}))?\b/g;
   for (const m of text.matchAll(num)) {
     if (overlaps(out, m.index!, m[0].length)) continue;
-    let a = Number(m[1]);
-    let b = Number(m[2]);
+    const a = Number(m[1]);
+    const b = Number(m[2]);
     const year = normYear(m[3] != null ? Number(m[3]) : null);
     let day: number, month: number;
     if (a > 12 && b <= 12) {
@@ -82,6 +84,22 @@ export function findDates(text: string, order: DateOrder): DateMatch[] {
     } else {
       [day, month] = order === "MDY" ? [b, a] : [a, b];
     }
+    if (validDMY(day, month)) {
+      out.push({ year, month, day, index: m.index!, length: m[0].length, raw: m[0] });
+    }
+  }
+
+  // Hyphen dates only with an explicit year (d-m-yyyy / d-m-yy).
+  const hyphen = /\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b/g;
+  for (const m of text.matchAll(hyphen)) {
+    if (overlaps(out, m.index!, m[0].length)) continue;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    const year = normYear(Number(m[3]));
+    let day: number, month: number;
+    if (a > 12 && b <= 12) [day, month] = [a, b];
+    else if (b > 12 && a <= 12) [day, month] = [b, a];
+    else [day, month] = order === "MDY" ? [b, a] : [a, b];
     if (validDMY(day, month)) {
       out.push({ year, month, day, index: m.index!, length: m[0].length, raw: m[0] });
     }
@@ -159,6 +177,21 @@ export function findTimes(text: string): TimeMatch[] {
     const start = clampTime(Number(m[1]), Number(m[2]));
     if (start) {
       out.push({ start, end: null, index: m.index!, length: m[0].length, raw: m[0] });
+    }
+  }
+
+  // Bare-hour ranges with no minutes: 7-15, 15-23, 23-7. Mask colon/dot times
+  // first so "07:00-15:00" is not misread as "00-15".
+  const masked = maskSpans(text, out);
+  const bare = /(?<!\d)(\d{1,2})\s*-\s*(\d{1,2})(?!\d)/g;
+  for (const m of masked.matchAll(bare)) {
+    const h1 = Number(m[1]);
+    const h2 = Number(m[2]);
+    if (h1 > 24 || h2 > 24 || h1 === h2) continue;
+    const start = clampTime(h1, 0);
+    const end = clampTime(h2, 0);
+    if (start && end) {
+      out.push({ start, end, index: m.index!, length: m[0].length, raw: m[0] });
     }
   }
 

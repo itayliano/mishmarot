@@ -23,35 +23,9 @@ function newId(): string {
   return `s${Date.now()}_${idCounter++}`;
 }
 
-/** Join tokens into one string and record where each token starts in it. */
-function buildLineText(tokens: Token[]): { text: string; offsets: number[] } {
-  let text = "";
-  const offsets: number[] = [];
-  tokens.forEach((t, i) => {
-    if (i > 0) text += " ";
-    offsets.push(text.length);
-    text += t.text;
-  });
-  return { text, offsets };
-}
-
-/** Map a character index in the joined line text back to a token's x position. */
-function xAtIndex(tokens: Token[], offsets: number[], index: number): number {
-  for (let i = tokens.length - 1; i >= 0; i--) {
-    if (index >= offsets[i]) return tokens[i].x;
-  }
-  return tokens[0]?.x ?? 0;
-}
-
-/** First token that is plain text (not a number/time/date fragment). */
-function rowLabel(tokens: Token[]): string | undefined {
-  for (const t of tokens) {
-    const s = t.text.trim();
-    if (s.length >= 2 && /[A-Za-z֐-׿]/.test(s) && !/^\d/.test(s)) {
-      return s;
-    }
-  }
-  return undefined;
+/** Join a line's tokens (in x order) into one string for regex scanning. */
+function buildLineText(tokens: Token[]): string {
+  return tokens.map((t) => t.text).join(" ");
 }
 
 function makeShift(
@@ -100,11 +74,11 @@ export function parseShifts(lines: Line[], opts: ParseOptions): Shift[] {
 
   // First pass: collect per-line dates/times so we can compute a document year.
   const scanned = lines.map((line) => {
-    const { text, offsets } = buildLineText(line.tokens);
+    const text = buildLineText(line.tokens);
     const dates = findDates(text, options.order);
     const masked = maskSpans(text, dates);
     const times = findTimes(masked);
-    return { line, text, offsets, dates, times };
+    return { line, text, dates, times };
   });
 
   const docYear = dominantYear(scanned.flatMap((s) => s.dates));
@@ -137,36 +111,107 @@ export function parseShifts(lines: Line[], opts: ParseOptions): Shift[] {
     }
   }
 
-  // --- Grid pass: a date header row, then time cells mapped by x position ---
-  type Column = { x: number; date: DateMatch };
-  let header: { page: number; y: number; cols: Column[] } | null = null;
+  // --- Grid pass (token level) ---
+  // Person rosters are transposed: columns are dates, rows are people, the name
+  // sits in its own column. Working at the token level (not lines) survives the
+  // row-splitting that dense tables cause: each time cell is matched to a date
+  // column by x and to a person by the nearest name row in y.
+  const allTokens = scanned.flatMap((s) => s.line.tokens);
 
-  for (const s of scanned) {
-    const dates = s.dates.map(applyYear);
-    // A line with >=2 dates spread horizontally is treated as a column header.
-    if (dates.length >= 2) {
-      const cols = dates.map((d) => ({
-        x: xAtIndex(s.line.tokens, s.offsets, d.index),
-        date: d,
-      }));
-      header = { page: s.line.page, y: s.line.y, cols };
-      continue;
-    }
-    if (!header || s.line.page !== header.page || s.line.y >= header.y) continue;
-    if (!s.times.length || s.dates.length) continue; // own-date lines handled above
+  const dated = allTokens
+    .map((t) => {
+      const ds = findDates(t.text, options.order);
+      return ds.length === 1 ? { t, date: applyYear(ds[0]) } : null;
+    })
+    .filter((v): v is { t: Token; date: DateMatch } => v !== null);
 
-    const label = rowLabel(s.line.tokens);
-    for (const t of s.times) {
-      const tx = xAtIndex(s.line.tokens, s.offsets, t.index);
-      let nearest = header.cols[0];
-      for (const c of header.cols) {
-        if (Math.abs(c.x - tx) < Math.abs(nearest.x - tx)) nearest = c;
+  const header = bestDateRow(dated);
+  if (header) {
+    const cols = header.map((d) => ({ x: d.t.x, date: d.date })).sort((a, b) => a.x - b.x);
+    const xs = cols.map((c) => c.x);
+    let minGap = Infinity;
+    for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1]);
+    const colTol = Number.isFinite(minGap) ? Math.max(8, minGap * 0.4) : 40;
+    const page = header[0].t.page;
+    const headerY = header[0].t.y;
+
+    const nameToks = allTokens.filter(
+      (t) =>
+        t.page === page &&
+        t.y < headerY - 1 &&
+        t.text.trim().length >= 2 &&
+        /[A-Za-z֐-׿]/.test(t.text) &&
+        !/\d/.test(t.text) &&
+        cols.every((c) => Math.abs(c.x - t.x) > colTol),
+    );
+    const rows = clusterRows(nameToks);
+    const rowYs = rows.map((r) => r.y).sort((a, b) => a - b);
+    let minRowGap = Infinity;
+    for (let i = 1; i < rowYs.length; i++) minRowGap = Math.min(minRowGap, rowYs[i] - rowYs[i - 1]);
+    const yTol = Number.isFinite(minRowGap) ? Math.max(6, minRowGap * 0.75) : 24;
+
+    for (const t of allTokens) {
+      if (t.page !== page || t.y >= headerY - 1) continue;
+      const times = findTimes(maskSpans(t.text, findDates(t.text, options.order)));
+      if (!times.length) continue;
+
+      let col = cols[0];
+      for (const c of cols) if (Math.abs(c.x - t.x) < Math.abs(col.x - t.x)) col = c;
+
+      let label: string | undefined;
+      let best = Infinity;
+      for (const r of rows) {
+        const dy = Math.abs(r.y - t.y);
+        if (dy < best) ((best = dy), (label = r.name));
       }
-      shifts.push(makeShift(nearest.date, t, options, s.text, t.end ? 0.7 : 0.45, label));
+      if (best > yTol) label = undefined;
+
+      for (const tm of times) {
+        shifts.push(makeShift(col.date, tm, options, t.text, tm.end ? 0.7 : 0.45, label));
+      }
     }
   }
 
   return dedupe(shifts);
+}
+
+/** Cluster date tokens into rows by y; return the largest row (the header). */
+function bestDateRow(
+  dated: { t: Token; date: DateMatch }[],
+): { t: Token; date: DateMatch }[] | null {
+  const tol = 6;
+  const used = new Array(dated.length).fill(false);
+  let best: { t: Token; date: DateMatch }[] = [];
+  for (let i = 0; i < dated.length; i++) {
+    if (used[i]) continue;
+    const group = [dated[i]];
+    used[i] = true;
+    for (let j = i + 1; j < dated.length; j++) {
+      if (used[j]) continue;
+      if (dated[j].t.page === dated[i].t.page && Math.abs(dated[j].t.y - dated[i].t.y) <= tol) {
+        group.push(dated[j]);
+        used[j] = true;
+      }
+    }
+    if (group.length > best.length) best = group;
+  }
+  return best.length >= 2 ? best : null;
+}
+
+/** Cluster name tokens into person rows by y; join each row's tokens by x. */
+function clusterRows(toks: Token[]): { y: number; name: string }[] {
+  const sorted = [...toks].sort((a, b) => b.y - a.y);
+  const rows: { refY: number; toks: Token[] }[] = [];
+  for (const t of sorted) {
+    const tol = Math.max(6, t.height * 0.8);
+    const row = rows.find((r) => Math.abs(r.refY - t.y) <= tol);
+    if (row) row.toks.push(t);
+    else rows.push({ refY: t.y, toks: [t] });
+  }
+  return rows.map((r) => ({
+    y: r.toks.reduce((a, b) => a + b.y, 0) / r.toks.length,
+    name: [...r.toks].sort((a, b) => a.x - b.x).map((t) => t.text).join(" ").trim(),
+  }));
 }
 
 function dedupe(shifts: Shift[]): Shift[] {

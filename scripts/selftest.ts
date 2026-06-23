@@ -94,6 +94,38 @@ console.log("Textual Hebrew date '22 ביוני 2025':");
   check("date 2025-06-22", shifts[0]?.year === 2025 && shifts[0]?.month === 6 && shifts[0]?.day === 22, shifts[0]);
 }
 
+console.log("Real nurse-roster format (backslash dates + bare-hour cells + names):");
+{
+  // Columns are dates; rows are people; name sits in its own right-side column.
+  const header = line([["28\\6", 300], ["29\\6", 200], ["30\\6", 100]], 700);
+  const row1 = line(
+    [["1", 620], ["אוזן", 560], ["אירמה", 500], ["א", 305], ["7-15", 300], ["15-23", 200]],
+    660,
+  );
+  const row2 = line([["2", 620], ["רוזן", 560], ["ילנה", 500], ["23-7", 300]], 620);
+  const shifts = parseShifts([header, row1, row2], { order: "DMY", lang: "he", ref: REF });
+
+  check("3 shifts from roster", shifts.length === 3, shifts);
+  const irma = shifts.filter((s) => s.label === "אירמה אוזן");
+  check("name column detected (אירמה אוזן x2)", irma.length === 2, shifts.map((s) => s.label));
+  check(
+    "bare-hour 7-15 -> 07:00-15:00 on 28/6",
+    irma.some((s) => s.day === 28 && s.start === "07:00" && s.end === "15:00"),
+    irma,
+  );
+  check(
+    "15-23 mapped to 29/6 column",
+    irma.some((s) => s.day === 29 && s.start === "15:00" && s.end === "23:00"),
+    irma,
+  );
+  const ilana = shifts.find((s) => s.label === "ילנה רוזן");
+  check("overnight 23-7 ends next day", ilana?.start === "23:00" && ilana?.endsNextDay === true, ilana);
+  check("backslash date year resolved to 2026", shifts.every((s) => s.year === 2026), shifts);
+
+  const people = [...new Set(shifts.map((s) => s.label))].sort();
+  check("distinct people for filter", people.length === 2, people);
+}
+
 console.log("ICS + Google URL generation:");
 {
   const lines = [line([["24/06/2025", 10], ["23:00-07:00", 160]], 700)];

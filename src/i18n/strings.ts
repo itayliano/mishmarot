@@ -22,6 +22,8 @@ export interface Strings {
   filterLabel: string;
   filterPlaceholder: string;
   clearFilter: string;
+  personLabel: string;
+  allPeople: string;
   selectAll: string;
   selectNone: string;
   colSelect: string;
@@ -83,8 +85,8 @@ const he: Strings = {
   dir: "rtl",
   appTitle: "משמרות → יומן",
   tagline: "העלו PDF של לוח משמרות, נזהה את המשמרות ונוסיף אותן ל-Google Calendar.",
-  dropTitle: "גררו לכאן קובץ PDF",
-  dropHint: "או בחרו קובץ מהמכשיר / מהמחשב",
+  dropTitle: "גררו לכאן קובץ",
+  dropHint: "PDF · תמונה/צילום מסך · Excel · Word · טקסט — מהמכשיר או מהמחשב",
   chooseFile: "בחירת קובץ",
   parsing: "מנתח את הקובץ…",
   scannedDetected: "לא נמצא טקסט — מזהה כסריקה ומריץ OCR (טעינה ראשונה עשויה לקחת זמן)…",
@@ -102,6 +104,8 @@ const he: Strings = {
   filterLabel: "סינון לפי שם / טקסט",
   filterPlaceholder: "למשל: השם שלך",
   clearFilter: "נקה",
+  personLabel: "מיון לפי אדם",
+  allPeople: "כל האנשים",
   selectAll: "בחר הכל",
   selectNone: "בטל הכל",
   colSelect: "✓",
@@ -162,8 +166,8 @@ const en: Strings = {
   dir: "ltr",
   appTitle: "Shifts → Calendar",
   tagline: "Upload a shift-schedule PDF; we detect the shifts and add them to Google Calendar.",
-  dropTitle: "Drop a PDF file here",
-  dropHint: "or choose a file from your device / computer",
+  dropTitle: "Drop a file here",
+  dropHint: "PDF · image/screenshot · Excel · Word · text — from your device or computer",
   chooseFile: "Choose file",
   parsing: "Parsing file…",
   scannedDetected: "No text found — detected as scanned, running OCR (first load may take a while)…",
@@ -181,6 +185,8 @@ const en: Strings = {
   filterLabel: "Filter by name / text",
   filterPlaceholder: "e.g. your name",
   clearFilter: "Clear",
+  personLabel: "Filter by person",
+  allPeople: "Everyone",
   selectAll: "Select all",
   selectNone: "Select none",
   colSelect: "✓",

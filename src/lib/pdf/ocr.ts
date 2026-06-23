@@ -28,6 +28,64 @@ interface OcrWord {
   bbox: { x0: number; y0: number; x1: number; y1: number };
 }
 
+type Logger = (m: { status: string; progress: number }) => void;
+
+async function makeWorker(onPage: () => OcrProgress, onProgress?: (p: OcrProgress) => void) {
+  const mod: any = await import("tesseract.js");
+  const createWorker = mod.createWorker ?? mod.default?.createWorker;
+  const logger: Logger = (m) => {
+    if (m.status === "recognizing text") {
+      const base = onPage();
+      onProgress?.({ ...base, progress: m.progress ?? 0 });
+    }
+  };
+  return createWorker(LANGS, 1, { logger });
+}
+
+function imageHeight(file: Blob): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      resolve(img.naturalHeight || 10000);
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      resolve(10000);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+}
+
+/** OCR a single image file (screenshot/photo) into positioned tokens. */
+export async function ocrImage(
+  file: File,
+  onProgress?: (p: OcrProgress) => void,
+): Promise<Token[]> {
+  const worker = await makeWorker(() => ({ page: 1, pages: 1, progress: 0 }), onProgress);
+  try {
+    const height = await imageHeight(file);
+    const { data } = await worker.recognize(file, {}, { blocks: true });
+    const tokens: Token[] = [];
+    for (const w of collectWords(data)) {
+      const text = (w.text ?? "").trim();
+      if (!text || !w.bbox) continue;
+      tokens.push({
+        text,
+        x: w.bbox.x0,
+        y: height - w.bbox.y0,
+        width: w.bbox.x1 - w.bbox.x0,
+        height: Math.max(1, w.bbox.y1 - w.bbox.y0),
+        page: 1,
+      });
+    }
+    return tokens;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 /** Flatten Tesseract's blocks → paragraphs → lines → words. */
 function collectWords(data: { blocks?: unknown[] | null }): OcrWord[] {
   const out: OcrWord[] = [];

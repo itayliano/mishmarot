@@ -14,8 +14,7 @@ export function FileDrop({ onFile, strings, fileName, disabled }: Props) {
 
   const pick = (files: FileList | null) => {
     const file = files?.[0];
-    if (file && file.type === "application/pdf") onFile(file);
-    else if (file) onFile(file); // accept by extension too; parser will validate
+    if (file) onFile(file); // type is detected in the input pipeline
   };
 
   const onDrop = (e: DragEvent) => {
@@ -42,7 +41,7 @@ export function FileDrop({ onFile, strings, fileName, disabled }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.xlsx,.xls,.xlsm,.csv,.docx,.txt,application/pdf,image/*"
         hidden
         onChange={(e) => pick(e.target.files)}
       />

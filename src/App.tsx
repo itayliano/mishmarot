@@ -3,7 +3,8 @@ import { FileDrop } from "./components/FileDrop";
 import { ShiftTable } from "./components/ShiftTable";
 import { ExportBar } from "./components/ExportBar";
 import { GoogleMenu } from "./components/GoogleMenu";
-import { extractLines, type ExtractProgress } from "./lib/pdf/extract";
+import { type ExtractProgress } from "./lib/pdf/extract";
+import { extractFromFile } from "./lib/input/fromFile";
 import { parseShifts } from "./lib/parse/parseShifts";
 import { connectGoogle, listCalendars, type CalendarItem } from "./lib/calendar/google";
 import type { DateOrder, Lang, Line, Shift } from "./lib/parse/types";
@@ -29,6 +30,7 @@ export function App() {
   const [fileName, setFileName] = useState<string>();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [filter, setFilter] = useState("");
+  const [person, setPerson] = useState("");
   const [warning, setWarning] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [progressMsg, setProgressMsg] = useState<string>("");
@@ -102,8 +104,8 @@ export function App() {
     setWarning("");
     setProgressMsg("");
     setUsedOcr(false);
+    setPerson("");
     try {
-      const buf = await file.arrayBuffer();
       const onProgress = (p: ExtractProgress) => {
         if (p.phase === "ocr") {
           setProgressMsg(STRINGS[lang].ocrProgress(p.page, p.pages, Math.round(p.progress * 100)));
@@ -111,7 +113,7 @@ export function App() {
           setProgressMsg("");
         }
       };
-      const { lines, textLength, usedOcr: ocr } = await extractLines(buf, { onProgress });
+      const { lines, textLength, usedOcr: ocr } = await extractFromFile(file, { onProgress });
       linesRef.current = lines;
       usedOcrRef.current = ocr;
       setUsedOcr(ocr);
@@ -163,15 +165,30 @@ export function App() {
     ]);
   };
 
+  const people = useMemo(
+    () =>
+      [...new Set(shifts.map((x) => x.label).filter((l): l is string => !!l))].sort((a, b) =>
+        a.localeCompare(b, "he"),
+      ),
+    [shifts],
+  );
+
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return shifts;
-    return shifts.filter((x) =>
-      [x.title, x.label ?? "", x.raw].some((t) => t.toLowerCase().includes(q)),
+    return shifts.filter(
+      (x) =>
+        (!person || x.label === person) &&
+        (!q || [x.title, x.label ?? "", x.raw].some((t) => t.toLowerCase().includes(q))),
     );
-  }, [shifts, filter]);
+  }, [shifts, filter, person]);
 
   const selected = useMemo(() => shifts.filter((x) => x.selected), [shifts]);
+
+  // Choosing a person filters the table and selects only their shifts for export.
+  const choosePerson = (p: string) => {
+    setPerson(p);
+    if (p) setShifts((prev) => prev.map((x) => ({ ...x, selected: x.label === p })));
+  };
 
   const setAllVisible = (value: boolean) => {
     const ids = new Set(visible.map((x) => x.id));
@@ -258,6 +275,19 @@ export function App() {
             <button className="ghost" onClick={() => setAllVisible(false)}>
               {s.selectNone}
             </button>
+            {people.length > 0 && (
+              <label>
+                👤 {s.personLabel}
+                <select value={person} onChange={(e) => choosePerson(e.target.value)}>
+                  <option value="">{s.allPeople}</option>
+                  {people.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               {s.filterLabel}
               <input
