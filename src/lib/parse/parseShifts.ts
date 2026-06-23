@@ -51,6 +51,7 @@ function makeShift(
     confidence,
     raw: raw.trim(),
     selected: true,
+    duplicate: false,
   };
 }
 
@@ -172,7 +173,7 @@ export function parseShifts(lines: Line[], opts: ParseOptions): Shift[] {
     }
   }
 
-  return dedupe(shifts);
+  return markDuplicates(shifts);
 }
 
 /** Cluster date tokens into rows by y; return the largest row (the header). */
@@ -214,19 +215,28 @@ function clusterRows(toks: Token[]): { y: number; name: string }[] {
   }));
 }
 
-function dedupe(shifts: Shift[]): Shift[] {
-  const seen = new Set<string>();
-  const out: Shift[] = [];
-  for (const s of shifts) {
-    const key = `${s.year}-${s.month}-${s.day}|${s.start}|${s.end}|${s.label ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(s);
-  }
-  return out.sort((a, b) => {
+/**
+ * Sort shifts, then flag exact repeats (same date+time+person) as duplicates and
+ * unselect them — so identical shifts aren't added to the calendar twice, while
+ * staying visible for review.
+ */
+function markDuplicates(shifts: Shift[]): Shift[] {
+  const sorted = [...shifts].sort((a, b) => {
     if (a.year !== b.year) return a.year - b.year;
     if (a.month !== b.month) return a.month - b.month;
     if (a.day !== b.day) return a.day - b.day;
-    return (a.start ?? "").localeCompare(b.start ?? "");
+    if ((a.start ?? "") !== (b.start ?? "")) return (a.start ?? "").localeCompare(b.start ?? "");
+    return (a.label ?? "").localeCompare(b.label ?? "");
   });
+  const seen = new Set<string>();
+  for (const s of sorted) {
+    const key = `${s.year}-${s.month}-${s.day}|${s.start}|${s.end}|${s.label ?? ""}`;
+    if (seen.has(key)) {
+      s.duplicate = true;
+      s.selected = false;
+    } else {
+      seen.add(key);
+    }
+  }
+  return sorted;
 }

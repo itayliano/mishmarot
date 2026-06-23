@@ -58,6 +58,8 @@ export interface Strings {
   setupLink: string;
   error: string;
   lowConfidenceNote: string;
+  duplicate: string;
+  duplicatesNote: (n: number) => string;
   // Reminders
   reminderLabel: string;
   reminderNone: string;
@@ -147,6 +149,8 @@ const he: Strings = {
   setupLink: "איך מגדירים?",
   error: "אירעה שגיאה",
   lowConfidenceNote: "שורות בצהוב זוהו בוודאות נמוכה — מומלץ לבדוק.",
+  duplicate: "כפילות",
+  duplicatesNote: (n) => `זוהו ${n} כפילויות (מסומנות באדום) — בוטלה הבחירה שלהן כדי לא להוסיף פעמיים.`,
   reminderLabel: "תזכורת",
   reminderNone: "ללא",
   reminderAtStart: "בזמן המשמרת",
@@ -234,6 +238,8 @@ const en: Strings = {
   setupLink: "How to set up?",
   error: "Something went wrong",
   lowConfidenceNote: "Rows highlighted in yellow were detected with low confidence — please check.",
+  duplicate: "Duplicate",
+  duplicatesNote: (n) => `Found ${n} duplicates (marked red) — unselected so they aren't added twice.`,
   reminderLabel: "Reminder",
   reminderNone: "None",
   reminderAtStart: "At start",

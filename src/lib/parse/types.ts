@@ -45,6 +45,8 @@ export interface Shift {
   raw: string;
   /** Whether this row is selected for export. */
   selected: boolean;
+  /** True when an identical earlier shift exists (same date+time+person). */
+  duplicate: boolean;
 }
 
 export type Lang = "he" | "en";

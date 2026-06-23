@@ -40,7 +40,7 @@ export function ShiftTable({ rows, strings, columns, onUpdate, onDelete }: Props
         </thead>
         <tbody>
           {rows.map((s) => (
-            <tr key={s.id} className={s.confidence < 0.6 ? "low" : undefined}>
+            <tr key={s.id} className={s.duplicate ? "dup" : s.confidence < 0.6 ? "low" : undefined}>
               <td>
                 <input
                   type="checkbox"
@@ -82,6 +82,7 @@ export function ShiftTable({ rows, strings, columns, onUpdate, onDelete }: Props
                 </td>
               )}
               <td>
+                {s.duplicate && <span className="dup-badge">{strings.duplicate}</span>}
                 <input
                   className="title-input"
                   type="text"

@@ -165,6 +165,7 @@ export function App() {
         confidence: 1,
         raw: "",
         selected: true,
+        duplicate: false,
       },
     ]);
   };
@@ -216,6 +217,7 @@ export function App() {
   };
 
   const hasLowConfidence = shifts.some((x) => x.confidence < 0.6);
+  const dupCount = shifts.filter((x) => x.duplicate).length;
 
   return (
     <div className="app">
@@ -332,6 +334,7 @@ export function App() {
             )}
           </div>
 
+          {dupCount > 0 && <div className="notice warn">{s.duplicatesNote(dupCount)}</div>}
           {hasLowConfidence && <div className="muted">{s.lowConfidenceNote}</div>}
 
           <ShiftTable
