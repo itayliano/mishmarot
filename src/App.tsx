@@ -31,6 +31,8 @@ export function App() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [filter, setFilter] = useState("");
   const [person, setPerson] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [warning, setWarning] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [progressMsg, setProgressMsg] = useState<string>("");
@@ -105,6 +107,8 @@ export function App() {
     setProgressMsg("");
     setUsedOcr(false);
     setPerson("");
+    setDateFrom("");
+    setDateTo("");
     try {
       const onProgress = (p: ExtractProgress) => {
         if (p.phase === "ocr") {
@@ -175,14 +179,30 @@ export function App() {
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
+    const ymd = (x: Shift) => x.year * 10000 + x.month * 100 + x.day;
+    const fromN = dateFrom ? Number(dateFrom.replace(/-/g, "")) : null;
+    const toN = dateTo ? Number(dateTo.replace(/-/g, "")) : null;
     return shifts.filter(
       (x) =>
         (!person || x.label === person) &&
+        (fromN == null || ymd(x) >= fromN) &&
+        (toN == null || ymd(x) <= toN) &&
         (!q || [x.title, x.label ?? "", x.raw].some((t) => t.toLowerCase().includes(q))),
     );
-  }, [shifts, filter, person]);
+  }, [shifts, filter, person, dateFrom, dateTo]);
 
   const selected = useMemo(() => shifts.filter((x) => x.selected), [shifts]);
+
+  // Show only the columns that carry information for the loaded file.
+  const columns = useMemo(
+    () => ({
+      label: shifts.some((x) => !!x.label),
+      confidence: shifts.some((x) => x.confidence < 0.9),
+      overnight: shifts.some((x) => !!x.end),
+      source: shifts.some((x) => x.raw.trim().length > 0),
+    }),
+    [shifts],
+  );
 
   // Choosing a person filters the table and selects only their shifts for export.
   const choosePerson = (p: string) => {
@@ -289,6 +309,14 @@ export function App() {
               </label>
             )}
             <label>
+              📅 {s.dateFrom}
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            </label>
+            <label>
+              📅 {s.dateTo}
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </label>
+            <label>
               {s.filterLabel}
               <input
                 type="text"
@@ -306,7 +334,13 @@ export function App() {
 
           {hasLowConfidence && <div className="muted">{s.lowConfidenceNote}</div>}
 
-          <ShiftTable rows={visible} strings={s} onUpdate={updateShift} onDelete={deleteShift} />
+          <ShiftTable
+            rows={visible}
+            strings={s}
+            columns={columns}
+            onUpdate={updateShift}
+            onDelete={deleteShift}
+          />
 
           <ExportBar
             selected={selected}

@@ -2,9 +2,17 @@ import type { Shift } from "../lib/parse/types";
 import type { Strings } from "../i18n/strings";
 import { googleTemplateUrl } from "../lib/calendar/googleUrl";
 
+export interface ColumnFlags {
+  label: boolean;
+  confidence: boolean;
+  overnight: boolean;
+  source: boolean;
+}
+
 interface Props {
   rows: Shift[];
   strings: Strings;
+  columns: ColumnFlags;
   onUpdate: (id: string, patch: Partial<Shift>) => void;
   onDelete: (id: string) => void;
 }
@@ -12,7 +20,7 @@ interface Props {
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toDateValue = (s: Shift) => `${s.year}-${pad2(s.month)}-${pad2(s.day)}`;
 
-export function ShiftTable({ rows, strings, onUpdate, onDelete }: Props) {
+export function ShiftTable({ rows, strings, columns, onUpdate, onDelete }: Props) {
   return (
     <div className="table-wrap">
       <table>
@@ -22,11 +30,11 @@ export function ShiftTable({ rows, strings, onUpdate, onDelete }: Props) {
             <th>{strings.colDate}</th>
             <th>{strings.colStart}</th>
             <th>{strings.colEnd}</th>
-            <th>{strings.overnight}</th>
+            {columns.overnight && <th>{strings.overnight}</th>}
             <th>{strings.colTitle}</th>
-            <th>{strings.colLabel}</th>
-            <th>{strings.colConfidence}</th>
-            <th>{strings.colSource}</th>
+            {columns.label && <th>{strings.colLabel}</th>}
+            {columns.confidence && <th>{strings.colConfidence}</th>}
+            {columns.source && <th>{strings.colSource}</th>}
             <th>{strings.colActions}</th>
           </tr>
         </thead>
@@ -64,13 +72,15 @@ export function ShiftTable({ rows, strings, onUpdate, onDelete }: Props) {
                   onChange={(e) => onUpdate(s.id, { end: e.target.value || null })}
                 />
               </td>
-              <td style={{ textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={s.endsNextDay}
-                  onChange={(e) => onUpdate(s.id, { endsNextDay: e.target.checked })}
-                />
-              </td>
+              {columns.overnight && (
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={s.endsNextDay}
+                    onChange={(e) => onUpdate(s.id, { endsNextDay: e.target.checked })}
+                  />
+                </td>
+              )}
               <td>
                 <input
                   className="title-input"
@@ -79,24 +89,30 @@ export function ShiftTable({ rows, strings, onUpdate, onDelete }: Props) {
                   onChange={(e) => onUpdate(s.id, { title: e.target.value })}
                 />
               </td>
-              <td>
-                <input
-                  className="label-input"
-                  type="text"
-                  value={s.label ?? ""}
-                  onChange={(e) => onUpdate(s.id, { label: e.target.value || undefined })}
-                />
-              </td>
-              <td>
-                <span
-                  className="conf-bar"
-                  title={`${Math.round(s.confidence * 100)}%`}
-                  style={{ width: `${Math.max(6, Math.round(s.confidence * 40))}px` }}
-                />
-              </td>
-              <td className="source-cell" title={s.raw}>
-                {s.raw}
-              </td>
+              {columns.label && (
+                <td>
+                  <input
+                    className="label-input"
+                    type="text"
+                    value={s.label ?? ""}
+                    onChange={(e) => onUpdate(s.id, { label: e.target.value || undefined })}
+                  />
+                </td>
+              )}
+              {columns.confidence && (
+                <td>
+                  <span
+                    className="conf-bar"
+                    title={`${Math.round(s.confidence * 100)}%`}
+                    style={{ width: `${Math.max(6, Math.round(s.confidence * 40))}px` }}
+                  />
+                </td>
+              )}
+              {columns.source && (
+                <td className="source-cell" title={s.raw}>
+                  {s.raw}
+                </td>
+              )}
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
                   <a

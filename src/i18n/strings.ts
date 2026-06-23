@@ -24,6 +24,8 @@ export interface Strings {
   clearFilter: string;
   personLabel: string;
   allPeople: string;
+  dateFrom: string;
+  dateTo: string;
   selectAll: string;
   selectNone: string;
   colSelect: string;
@@ -106,6 +108,8 @@ const he: Strings = {
   clearFilter: "נקה",
   personLabel: "מיון לפי אדם",
   allPeople: "כל האנשים",
+  dateFrom: "מתאריך",
+  dateTo: "עד תאריך",
   selectAll: "בחר הכל",
   selectNone: "בטל הכל",
   colSelect: "✓",
@@ -187,6 +191,8 @@ const en: Strings = {
   clearFilter: "Clear",
   personLabel: "Filter by person",
   allPeople: "Everyone",
+  dateFrom: "From date",
+  dateTo: "To date",
   selectAll: "Select all",
   selectNone: "Select none",
   colSelect: "✓",
