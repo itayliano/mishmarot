@@ -15,7 +15,12 @@ const GIS_SRC = "https://accounts.google.com/gsi/client";
 
 const LS_CLIENT_ID = "mishmarot_google_client_id";
 
-/** Client ID resolved from the in-app setting (localStorage) or build-time env. */
+// Public OAuth client for the deployed site (client IDs are not secret in a
+// browser app). A localStorage override or VITE_GOOGLE_CLIENT_ID still wins.
+const DEFAULT_CLIENT_ID =
+  "841819204306-d73737qabr228kpgh80c2cpkhmu54a6j.apps.googleusercontent.com";
+
+/** Client ID resolved from the in-app setting (localStorage), env, or default. */
 export function getGoogleClientId(): string {
   try {
     const v = localStorage.getItem(LS_CLIENT_ID);
@@ -23,7 +28,7 @@ export function getGoogleClientId(): string {
   } catch {
     /* localStorage unavailable */
   }
-  return import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || "";
+  return import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || DEFAULT_CLIENT_ID;
 }
 
 /** Persist a Client ID entered in the app (empty string clears it). */
