@@ -160,7 +160,7 @@ export async function insertEvents(
   reminderMinutes: number | null = 60,
   calendarId = "primary",
   onProgress?: (p: InsertProgress) => void,
-): Promise<{ done: number; failed: number }> {
+): Promise<{ done: number; failed: number; firstError: string }> {
   const timeZone = tz();
   const reminders =
     reminderMinutes != null
@@ -168,6 +168,7 @@ export async function insertEvents(
       : { useDefault: false, overrides: [] as { method: string; minutes: number }[] };
   let done = 0;
   let failed = 0;
+  let firstError = "";
 
   for (const shift of shifts) {
     const ev = resolveEvent(shift);
@@ -200,12 +201,25 @@ export async function insertEvents(
         },
       );
       if (res.ok) done++;
-      else failed++;
-    } catch {
+      else {
+        failed++;
+        if (!firstError) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j?.error?.message || "";
+          } catch {
+            /* non-JSON */
+          }
+          firstError = `HTTP ${res.status}${detail ? ` – ${detail}` : ""}`;
+        }
+      }
+    } catch (e) {
       failed++;
+      if (!firstError) firstError = e instanceof Error ? e.message : String(e);
     }
     onProgress?.({ done, total: shifts.length, failed });
   }
 
-  return { done, failed };
+  return { done, failed, firstError };
 }

@@ -52,9 +52,22 @@ export function ExportBar({
       setPhase("adding");
       setMessage("");
       setProgress({ done: 0, total: selected.length, failed: 0 });
-      const { done, failed } = await insertEvents(selected, t, reminder, calendarId, setProgress);
-      setPhase("done");
-      setMessage(failed ? strings.addedPartial(done, failed) : strings.addedOk(done));
+      const { done, failed, firstError } = await insertEvents(
+        selected,
+        t,
+        reminder,
+        calendarId,
+        setProgress,
+      );
+      if (done === 0 && failed > 0) {
+        setPhase("error");
+        setMessage(firstError || strings.addedPartial(done, failed));
+      } else {
+        setPhase("done");
+        setMessage(
+          failed ? `${strings.addedPartial(done, failed)} (${firstError})` : strings.addedOk(done),
+        );
+      }
     } catch (e) {
       setPhase("error");
       setMessage(e instanceof Error ? e.message : String(e));
